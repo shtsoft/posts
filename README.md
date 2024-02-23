@@ -1,0 +1,1 @@
+- [What the Ministry of Truth Knows About ... the Essence of Object-Oriented Programming](2022-11-25-mot-oop.md)
