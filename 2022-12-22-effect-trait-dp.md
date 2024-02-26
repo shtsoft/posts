@@ -1,8 +1,5 @@
----
-heading: "Faking Algebraic Effects and Handlers With Traits: A Rust Design Pattern"
----
+# Faking Algebraic Effects and Handlers With Traits: A Rust Design Pattern
 
-[]()
 Algebraic effects and handlers have become a hot topic in programming language research during the last two decades.
 In the early days of handlers people were curious but seemed to have difficulties to get started with the topic.
 And so one of the pioneers of handlers eventually felt compelled to write the tutorial [An Introduction to Algebraic Effects and Handlers](http://www.sciencedirect.com/science/article/pii/S1571066115000705) to make it more accessible.\
