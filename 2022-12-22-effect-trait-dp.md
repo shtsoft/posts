@@ -1,42 +1,43 @@
 # Faking Algebraic Effects and Handlers With Traits: A Rust Design Pattern
 
-Algebraic effects and handlers have become a hot topic in programming language research during the last two decades.
-In the early days of handlers people were curious but seemed to have difficulties to get started with the topic.
-And so one of the pioneers of handlers eventually felt compelled to write the tutorial [An Introduction to Algebraic Effects and Handlers](http://www.sciencedirect.com/science/article/pii/S1571066115000705) to make it more accessible.\
-The tutorial starts with '*Algebraic effects* are an approach to computational effects based on a premise that impure behaviour arises from a set of *operations*'.
-Rust does feature a way to deal with 'sets of operations': traits.
-But does that also mean one can actually do algebraic effects and handlers with vanilla Rust?
+Algebraic effects and handlers have become a hot topic in programming language research over the last two decades.
+In the early days of handlers, people were curious but often found it difficult to get started with the topic.
+As a result, one of the pioneers of handlers eventually felt compelled to write the tutorial [An Introduction to Algebraic Effects and Handlers](http://www.sciencedirect.com/science/article/pii/S1571066115000705) to make the subject more accessible.\
+The tutorial begins with: "*Algebraic effects* are an approach to computational effects based on the premise that impure behavior arises from a set of *operations*."
+Rust provides a way to work with "sets of operations": traits.
+But does that mean we can actually implement algebraic effects and handlers in vanilla Rust?
 As it turns out, not really.
-But trying to fake it leads to a perhaps interesting Rust design pattern.
+However, attempting to fake them leads to a potentially interesting Rust design pattern.
 
-This is what this post is about.
-More precisely, after a brief discussion of effect handlers and an encoding of it in Rust ([The Try](#the-try)), the shortcomings of the encoding are addressed based on an archetypical effect handler example ([The Trickery](#the-trickery)).
-However, in the subsequent discussion more sophisticated examples regarding async/await and probabilisitc programming will suggest that the encoding could still be useful ([The Usefulness](#the-usefulness)).
-Yet, you should not expect a revolution.
-The pattern is very much down to earth and probably already deployed somewhere.
+This post explores that idea.
+More precisely, after a brief discussion of effect handlers and a Rust encoding of them ([The Try](#the-try)), we examine the shortcomings of this encoding using a canonical effect handler example ([The Trickery](#the-trickery)).
+In the subsequent discussion, however, more sophisticated examples involving async/await and probabilistic programming suggest that the encoding may still be useful ([The Usefulness](#the-usefulness)).\
+That said, you should not expect a revolution.
+The pattern is very much down to earth and is probably already in use somewhere.
 
 ## The Try
 
-This section explains effect handlers and a possible Rust encoding more thoroughly.
-More precisely, contemplating the idea of effect handlers will allow us to encode effect handlers in Rust.
-Moreover, we address some general properties of the resulting pattern.
+This section explains effect handlers and a possible Rust encoding in more detail.
+In particular, examining the idea of effect handlers will allow us to derive an encoding in Rust.
+We will also discuss some general properties of the resulting pattern.
 
-To properly understand the relation between effect handlers and Rust traits we first need a more concrete definition of effects and handlers.
-Generally, an effect is something which has an impact on its environment/context.
-So, if effects are modeled as sets of operations, then these operations must have the ability to make use of the context they are executed in.
-Handling such an effect then means to specify what the according operations do depending on their context.
-So a handler is just an implementation of the according operations where the implementation has the ability to make use of the context.
-However, the use of the context has to be abstract, because the implementation cannot know in advance what the actual calling context of the operations are.\
-Having established what we consider effects and handlers, let us look at how to model the idea with Rust.
-While it is clear what the 'sets of operations' are - namely, just ordinary traits - it is not so clear how to make the context accessible to the traits' methods.
-To address that problem, first note that making the context accessible means to make the continuation accessible here.
-But vanilla Rust lacks support for (delimited) continuations.
-Therefore some workaround is required.
-The usual way to get a hold of the continuation is to use continuation-passing style (CPS).
-In fact, the syntax of the language from [An Introduction to Algebraic Effects and Handlers](http://www.sciencedirect.com/science/article/pii/S1571066115000705) suggests to write the methods of the trait in CPS.
-However, the semantics enforced by Rust in doing so does not quite correspond to the intended semantics of that article.
-Still, it seems to be the only low-effort workaround to make the context accessible.
-So without further ado here is what the general pattern for an effect with one operation looks like:
+To properly understand the relationship between effect handlers and Rust traits, we first need a more concrete definition of effects and handlers.
+In general, an effect is something that influences its environment or context.
+If effects are modeled as sets of operations, then these operations must be able to make use of the context in which they are executed.
+Handling such an effect therefore means specifying what the corresponding operations do depending on their context.
+A handler is simply an implementation of those operations where the implementation has access to the context.
+However, this access must remain abstract, because the implementation cannot know in advance what the actual calling context of the operations will be.
+
+Having established what we mean by effects and handlers, let us look at how to model this idea in Rust.
+While it is clear what the "sets of operations" are - namely, ordinary traits - it is less obvious how to make the context accessible to the trait methods.
+To address this problem, first note that making the context accessible effectively means making the continuation accessible.
+However, vanilla Rust does not support (delimited) continuations.
+Therefore, some workaround is required.
+The usual way to obtain access to the continuation is to use continuation-passing style (CPS).
+Indeed, the syntax of the language in [An Introduction to Algebraic Effects and Handlers](http://www.sciencedirect.com/science/article/pii/S1571066115000705) suggests writing the trait methods in CPS.
+However, the semantics enforced by Rust when doing so do not exactly correspond to the intended semantics described in that article.
+Still, it appears to be the only low-effort workaround for making the context accessible.
+So, without further ado, here is what the general pattern for an effect with a single operation looks like:
 
 ```rust
 trait Effect<A, B, C> {
@@ -46,33 +47,33 @@ trait Effect<A, B, C> {
 }
 ```
 
-A handler then simply is an implementation of the trait.
-Generally, the idea is to consider interfaces in CPS effects and implementations thereof handlers.
+A handler, then, is simply an implementation of the trait.
+In general, the idea is to treat CPS-style interfaces as effects and their implementations as handlers.
 
-Before examining the applicability of that idea we can already make some general remarks on the pattern.\
-First, note that the pattern shares the advantages of Rust-like saftey, low-level applicability and efficiency.
-In particular, efficiency means that code parameterized over handlers is specialized to the handlers by monomorphization.
-But it also shares its peculiarities.
-Rust's affine type systems prevents an arbitrary use of the continuation `k` if it is bounded by `FnOnce`.
-So one has to choose the trait bound for `K` wisely.
-To be clear, we regard that less as limitation but more as refinement.\
-Otherwise, it is notable that the handlers are 'shallow' as a consequence of being a trait implementation.
-That is, a handler is consumed by an operation call and has to be explcitly cloned (and possibly passed) if needed again somewhere else.
-This is in contrast to the 'deep' handlers commonly found in languages with effect handlers.
+Before examining the applicability of this idea, we can already make some general remarks about the pattern.\
+First, note that it inherits the advantages typically associated with Rust: safety, low-level applicability, and efficiency.
+In particular, efficiency here means that code parameterized over handlers is specialized to concrete handlers via monomorphization.\
+However, it also inherits some of Rust’s peculiarities.
+Rust’s affine type system prevents arbitrary use of the continuation `k` if it is bounded by `FnOnce`.
+Therefore, one has to choose the trait bound for `K` carefully.
+To be clear, we view this less as a limitation and more as a refinement.\
+Another notable aspect is that the handlers are *shallow* as a consequence of being trait implementations.
+That is, a handler is consumed by an operation call and must be explicitly cloned (and possibly passed along) if it is needed again elsewhere.
+This contrasts with the *deep* handlers commonly found in languages that natively support effect handlers.
 
 ## The Trickery
 
 This section discusses the viability of the pattern.
-The discussion is based on a standard example of effect handlers: exception handlers.
-[Exception handling](#exception-handling-code) is the probably most widely known example of effect handling.
-Discussing it will hopefully help you to understand the pattern better and if you are new to the topic, then also effect handlers in general.
-Yet, it will also reveal a big shortcoming of the low-level approach of interpreting effects in explicit CPS.
+The discussion is based on a standard example of effect handlers: exception handlers.\
+[Exception handling](#exception-handling-code) is probably the most widely known example of effect handling.
+Discussing it will hopefully help you better understand the pattern, and if you are new to the topic, effect handlers in general.
+However, it will also reveal a major shortcoming of the low-level approach of interpreting effects using explicit CPS.
 
 ### Exception Handling ([Code](https://gist.github.com/shtsoft/81520bb6b1c35e1bf497088438cd8cea))
 
-If you are a programmer who has worked with many languages, you might have already come into touch with exception handlers.
-Either way, effect handlers generalize exception handlers.
-The according exception effect can generally be defined as follows:
+If you are a programmer who has worked with multiple languages, you have likely encountered exception handlers before.
+In fact, effect handlers can be seen as a generalization of exception handlers.
+The corresponding exception effect can generally be defined as follows:
 
 ```rust
 trait Exception<B> {
@@ -82,9 +83,9 @@ trait Exception<B> {
 }
 ```
 
-The generic `A` essentially enforces that the continuation `k` cannot be used in the handler implementation which is the defining property of an exception.\
-Now, everything implementing that trait is an exception handler.
-For example, handling divisions by zero could be implemented by just printing an error message and throwing away the continuation:
+The generic `A` essentially ensures that the continuation `k` cannot be used in the handler implementation, which is the defining property of an exception.\
+Now, any type implementing this trait acts as an exception handler.
+For example, handling division by zero could be implemented by simply printing an error message and discarding the continuation:
 
 ```rust
 struct ExceptionDiv {}
@@ -99,7 +100,7 @@ impl Exception<()> for ExceptionDiv {
 }
 ```
 
-Then, actually raising an exception in a function implementing integer division could look like that:
+Then, actually raising an exception in a function implementing integer division could look like this:
 
 ```rust
 fn div(a: usize, b: usize, exception_handler: impl Exception<()>) {
@@ -115,11 +116,11 @@ fn div(a: usize, b: usize, exception_handler: impl Exception<()>) {
 }
 
 div(5, 2, ExceptionDiv {}); // prints `2`
-div(5, 0, ExceptionDiv {}); // prints the error message defined above by `ExceptionDiv` 
+div(5, 0, ExceptionDiv {}); // prints the error message defined above by `ExceptionDiv`
 ```
 
-What is interesting here is how the pattern compares to the ordinary exception/effect handler semantics.
-In a language with exception handlers one would write the above function body rather as
+What is interesting here is how this pattern compares to ordinary exception/effect handler semantics.
+In a language with exception handlers, one would write the above function body more like this:
 
 ```python
 try:
@@ -134,24 +135,24 @@ except:
 ```
 
 having the language dynamically derive the continuation.
-And that's also what it would be like in a language with effect handlers.
+The same would also be true in a language with effect handlers.
 However, in the Rust approach one has to push the continuation into the branches manually.
-This is bad.
-If at all, a compiler should do that.
-For human programmers that severe negative impact on the ergonomics is hardly acceptable.\
+This is problematic.
+If anything, a compiler should perform such transformations automatically.
+For human programmers, the severe negative impact on ergonomics is hardly acceptable.\
 And it only gets worse.
-Other control flow constructs suffer from similar problems.
-For example, the problem with `if` generalizes to other branching constructs like `match`.
-Furthermore, effectful `loop`s have to be replaced by recursive functions which has the serious drawback of perhaps overflowing the stack.\
-Generally, the problem is implicit 'jumping' within the continuation.
-A workaround is making that explicit.
-This is what 'pushing into the branches' and 'replacing by recursive function' essentially do.\
-The implicit jumps in branching and looping are local in the sense that jumping is within a single function body.
-But what if the context of an effect crosses function borders?
-These non-local jumps have to be made explicit, too.
-A generic way to do so is to write the function containing such an effect operation in CPS.
-That is, to be really modular one has to write effectful functions in CPS.\
-For example, `div` from above becomes:
+Other control-flow constructs suffer from similar issues.
+For example, the problem with `if` generalizes to other branching constructs such as `match`.
+Furthermore, effectful `loop`s must be replaced by recursive functions, which introduces the serious risk of stack overflows.\
+In general, the problem lies in implicit *jumps* within the continuation.
+A workaround is to make these jumps explicit.
+This is essentially what “pushing into the branches” and “replacing loops with recursive functions” accomplish.\
+The implicit jumps in branching and looping are local in the sense that the jumps remain within a single function body.
+But what if the context of an effect crosses function boundaries?
+These non-local jumps must also be made explicit.
+A generic way to achieve this is to write the function containing such an effect operation in CPS.
+In other words, to achieve true modularity, effectful functions must themselves be written in CPS.\
+For example, the `div` function from above becomes:
 
 ```rust
 fn try_div<C>(a: usize, b: usize, exception_handler: impl Exception<()>, k: impl Fn() -> C) -> C {
@@ -165,11 +166,11 @@ fn try_div<C>(a: usize, b: usize, exception_handler: impl Exception<()>, k: impl
     } else {
         continuation(a / b);
     }
-} 
+}
 ```
 
-This has to be contrasted with a language with exception/effect handlers.
-In a language with exception handlers the code would rather look like that:
+This has to be contrasted with a language that supports exception or effect handlers.
+In such a language, the code would look more like this:
 
 ```python
 div(a: int, b: int):
@@ -184,36 +185,39 @@ except:
    exception_handler
 ```
 
-In a language with effect handlers it would be very similar.
+In a language with effect handlers, it would look very similar.
 Just replace `except` with something like `with`.
-This is clearer, less verbose and most importantly not accompanied by the burden of CPS.
-Indeed, the major promise of effect handlers is to abstarct and modularize control without CPS in a clear and concise way.
-So the low-level approach to effect handling presented here is a fake.
-It is against the original spirit of effect handlers and can't really compete with effect handlers as language construct.\
-Yet, one should not rashly scrap the idea.
-While it is true that a general solution to the effectful functions problem requires CPS, it does not enforce the programmer to write the whole program in CPS but maybe just small portions of it.
-It is also conceivable that it is sometimes possible to elegantly circumvent the issues in a problem-specific manner.
-Moreover, it is not clear if the issues always come into play or have to be considered issues.
-In how far the pattern can still abstract and modularize control is the topic of the next section.
+This approach is clearer, less verbose, and - most importantly - not burdened by CPS.
+Indeed, one of the major promises of effect handlers is to abstract and modularize control flow *without* CPS, while remaining clear and concise.
+For that reason, the low-level approach to effect handling presented here is essentially a fake.
+It goes against the original spirit of effect handlers and cannot really compete with them as a language construct.\
+Yet, the idea should not be discarded too quickly.
+While it is true that a general solution to the problem of effectful functions requires CPS, this does not necessarily mean that the programmer must write the entire program in CPS - perhaps only small parts of it.
+It is also conceivable that, in some situations, the issues can be circumvented elegantly in a problem-specific way.
+Moreover, it is not always clear whether these issues will arise in practice or even need to be considered problematic.
+To what extent the pattern can still help abstract and modularize control is the topic of the next section.
 
 ## The Usefulness
 
 This section suggests that the pattern could, in fact, be useful for abstracting and modularizing control.
-To this end, the discussion revolves around two examples having a tradition in advertising effect handlers:
-- an abstraction of [async/await](#asyncawait-code) is outlined
-- a modularization of statistical model and statistical inference enabling [probabilistic programming](#probabilistic-programming-code) is outlined
+To explore this idea, the discussion revolves around two examples that are traditionally used to showcase effect handlers:
 
-The discussion itself does not make great efforts to assess the usefulness on the basis of those examples but leaves that task to reader.
+- an abstraction of [async/await](#asyncawait-code)
+- a modularization of statistical models and statistical inference enabling [probabilistic programming](#probabilistic-programming-code)
 
-But before begining with those more real-world examples, we briefly discuss [shift/reset](#shiftreset-code).
-Not necessarily because of it usefulness but rather due to its better mainstream fame (compared to effect handlers) helping the reader to better grasp the power of the pattern beyond effect operations as somewhat strange encoding of higher-order functions.
+The discussion does not attempt to rigorously assess the usefulness of the pattern based on these examples; instead, that task is left to the reader.
+
+Before moving on to these more practical examples, however, we briefly discuss [shift/reset](#shiftreset-code).
+
+This is not necessarily because of its usefulness, but rather because it is somewhat better known in mainstream programming circles (compared to effect handlers).
+As such, it may help the reader better grasp the power of the pattern beyond viewing effect operations merely as a somewhat unusual encoding of higher-order functions.
 
 ### Shift/Reset ([Code](https://gist.github.com/shtsoft/fbec95185b928713607e1883e5669e81))
 
-The idea of shift/reset is to reify the part of the continuation enclosed by the two keywords.
-It is equivalent in power to effect handlers and hence can be modeled by them.
-So it is no surprise that the pattern here can model a fake of it, at least.
-One possibility is to make `reset` the effect operation expecting a `shift` which binds the continuation in some `reset`-computation:
+The idea behind `shift`/`reset` is to reify the portion of the continuation enclosed by the two keywords.
+In terms of expressive power, it is equivalent to effect handlers and can therefore be modeled using them.
+Consequently, it is not surprising that the pattern presented here can also produce a rough imitation of it.
+One possible approach is to treat `reset` as the effect operation that expects a `shift`, which binds the continuation within a `reset` computation:
 
 ```rust
 trait Reset<C> {
@@ -236,7 +240,7 @@ impl<C> Reset<C> for CallBack {
     }
 }
 ```
-Note that `shift` itself looks like an effect operation and how it is trivially `handled` in `CallBack`.\
+Note that `shift` itself looks like an effect operation and also note how it is trivially `handled` in `CallBack`.\
 A silly example (where the continuation is used twice) is:
 
 ```rust
@@ -250,7 +254,7 @@ fn thirteen(reset_handler: impl Reset<usize>) {
 thirteen(CallBack {});
 ```
 
-As the handler of `reset` is usually provided as `CallBack {}` it can make sense to hide `CallBack {}.reset(...)` behind a macro `reset!()` and rather write:
+Since the handler for `reset` is usually provided as `CallBack {}`, it can be convenient to hide `CallBack {}.reset(...)` behind a macro `reset!()` and instead write:
 
 ```rust
 let thirteen = 5 + reset!(|k: fn(usize) -> usize| k(1) + k(3), |n| n + 2);
@@ -258,14 +262,13 @@ let thirteen = 5 + reset!(|k: fn(usize) -> usize| k(1) + k(3), |n| n + 2);
 println!("Result: {thirteen}",);
 ```
 
-It mitigates the boilerplate emerging from the handlers being shallow here.
+This approach reduces the boilerplate that arises from the handlers being shallow in this context.
 
 ### Async/Await ([Code](https://gist.github.com/shtsoft/829e2f161fda0dd0892b521febe6624b))
 
-The idea of async/await is to asynchronously do two jobs where the second perhaps awaits the result of the first at some points of its execution.
-The idea contains two effect operations.
-One for asynchronously doing the jobs and another for awaiting a result.
-This control structure can be abstracted by the following effect interface:
+The concept of async/await is to execute two jobs asynchronously, where the second job may await the result of the first at certain points during its execution.
+This idea involves two effect operations: one for executing jobs asynchronously and another for awaiting a result.
+This control structure can be abstracted using the following effect interface:
 
 ```rust
 trait AsyncAwait<B, C> {
@@ -280,11 +283,11 @@ trait AsyncAwait<B, C> {
 }
 ```
 
-Here, the thunk `asynchronous_b` is intended to be the first job and the continuation of `asynchronous` parameterized over the promised result is intended to be the second one, eventually manifesting the dependency on the first.
-In particular, the second job is perhaps effectfully `awaiting` the result of the first one (`promise_b`).\
-So, handlers ought to somehow pipe the output of the `asynchronous`-operation to the input of the `awaiting`-operation while asynchronously running the two jobs.
-A very straightforward Rust implementation with this behavior is to link them by a `channel()`.
-Doing so yields:
+Here, the thunk `asynchronous_b` represents the first job, and the continuation of `asynchronous`, parameterized over the promised result, represents the second job, which eventually depends on the first.
+In particular, the second job may effectfully `await` the result of the first job (`promise_b`).\
+Thus, handlers need to somehow pipe the output of the `asynchronous` operation to the input of the `awaiting` operation while executing both jobs asynchronously.
+A very straightforward Rust implementation of this behavior is to link them using a `channel()`.
+Doing so results in:
 
 ```rust
 struct Channel {}
@@ -313,12 +316,12 @@ impl<B: Send + 'static, C> AsyncAwait<B, C> for Channel {
 }
 ```
 
-Note that a new thread is spawned each time `asynchrounous` is called.
-This is costly and a real-world implementation would not do that but use a thread-pool instead, of course.
-However, otherwise it is pretty much what one expects of an async/await-implementation.\
-A major advantage of async/await as abstract control structure is the modularity coming along with it: a handler can be implemented everywhere by everybody and code can abstract over the handler making it more widely applicable.
-In that regard, the handler abstractions in code can be understood as requirements on the caller to provide the respective capabilities - like the requirement of an async/await-capability.[^2]
-For example, downloading something and returning its size while doing stuff until the size is needed to do other stuff can look like:
+Note that a new thread is spawned each time `asynchronous` is called.
+This is costly, and a real-world implementation would instead use a thread pool.
+Otherwise, however, this approach behaves largely as one would expect from an async/await implementation (w.r.t. to our definition but not w.r.t. the fork/yield-like definition used in real-world languages).\
+A major advantage of async/await as an abstract control structure is the modularity it provides: a handler can be implemented anywhere by anyone, and code can abstract over the handler, making it widely reusable.
+In this sense, the handler abstractions in the code can be understood as requirements on the caller to provide the respective capabilities - similar to requiring an async/await capability.[^2]
+For example, downloading a resource and returning its size while performing other tasks until the size is needed could look like this:
 
 ```rust
 fn download_doing_stuff(async_handler: impl AsyncAwait<usize, ()> + Copy) {
@@ -347,11 +350,11 @@ This function can be called with the handler defined above:
 download_doing_stuff(Channel {});
 ```
 
-But it could also be called with a different one.
-For instance, on a platform without support for spawning a thread, `download_doing_stuff` does not have to be changed but only be called with an alternative handler.
-`download_doing_stuff` plainly requires an async/await-capability.\
-Yet, in the case of async/await a global handler is likely the right choice most of the time.
-And using the respective macros instead of a handler abstraction makes look the code like that:
+But it could also be called with a different handler.
+For instance, on a platform without support for spawning threads, `download_doing_stuff` does not need to be modified; it only needs to be invoked with an alternative handler.
+`download_doing_stuff` simply requires an async/await capability.\
+That said, in the case of async/await, a global handler is likely the appropriate choice most of the time.
+Using the respective macros instead of a handler abstraction, the code might look like this:
 
 ```rust
 async!(download, |size| {
@@ -360,23 +363,22 @@ async!(download, |size| {
 });
 ```
 
-This actually looks nice, doesn't it?\
-One warning has to be issued though.
-The CPS involved in the effect-interface makes the pattern probably a bad choice for massively asynchronous code with a complicated concurrency-structure.
-The control abstraction presented here should rather be considered a lightweight solution for programs tending to often use isolated asynchronous jobs.
-But it can shine if there is a need to work on different async/await implementations.
+This actually looks nice, doesn’t it?\
+One caveat, however: the CPS involved in the effect interface makes this pattern probably unsuitable for massively asynchronous code with complex concurrency structures.
+The control abstraction presented here should be considered a lightweight solution for programs that frequently use isolated asynchronous jobs.
+Nevertheless, it can be quite effective when there is a need to work with different async/await implementations.
 
 ### Probabilistic Programming ([Code](https://gist.github.com/shtsoft/ba971c25e5bd559cc19cd07dff9dc761))
 
-The idea of probabilistic programming is to automize '(statistical) inference' on '(statistical) models'.\
-More precisely, a model here is a description of some (dynamic) reality or idea or whatever in a formal language with an outcome when executed.
-If the description involves some kind of randomness, the model is said to be statistical.
-As the outcome depends on the randomness, it is not particularly interesting in itself.
-What is interesting, however, is inferring the distribution of outcomes by executing the model again and again and using the respective likelihoods of the outcomes w.r.t. the random choices made in the model.
-The idea of probabilistic programming is to turn that inference into library code.\
-But there is a problem with modularity: the likelihood is implicitly baked into the model but rather needed outside of it for inference.
-A modern solution to that problem is to consider the recording of the likelihood an effect of the model which is handled by the inference and hence accessible there as state information at the recording points.
-In Rust this could look like:
+The idea of probabilistic programming is to automate “(statistical) inference” on “(statistical) models.”\
+More precisely, a model is a formal description of some (dynamic) aspect of reality, an idea, or whatever, which produces an outcome when executed.
+If the description involves randomness, the model is considered statistical.
+Since the outcome depends on random choices, the outcome itself is not particularly interesting.
+What matters is inferring the distribution of outcomes by repeatedly executing the model and accounting for the likelihood of each outcome relative to the random choices made.\
+Probabilistic programming aims to encapsulate this inference in library code.\
+However, there is a modularity problem: the likelihood is implicitly baked into within the model, but it is needed externally for inference.
+A modern solution is to treat recording the likelihood as an effect of the model, which is handled by the inference mechanism and thus accessible as state information at the recording points.
+In Rust, this could be expressed as:
 
 ```rust
 struct Particle<Handler, Outcome> {
@@ -394,17 +396,16 @@ trait Likelihood<'a, O: Copy + 'a> {
 }
 ```
 
-`score` is the effect operation of recording a part of the likelihood, `p`.
-The operation returns the handler instead of only a unit.
-This is because the handler is shallow and is a parameter of the model intended to carry state information accessible to the inference algorithms.
-So it has to be threaded through the model and in particular through the continuation.
-This results in types for `Model` and `Continuation` analogous to the state monad parameterized over the outcome, where the continuation is in a `Box` to allow for making it part of the state.\
-Also note that the name `Particle` for the result type of `Model` is common for a run of a statistical model.
-It seems to have its origin in physics representing a classical particle there.
-Interestingly, it can be considered the outcome in the context of the handler state, making it a 'statistical' particle slightly resembling a quantum particle.\
-Now handlers have to somehow record the likelihood according to the inference algorithm's needs.
-For importance sampling - an inference algorithm approximating the posterior distribution from Bayesian inference according to Bayes' theorem - it suffices to accumulate the parts of the likelihood.
-One possibility to do that is to wrap the weight accumulator for the likelihood into the handler carrying its state:
+`score` is the effect operation for recording a portion of the likelihood, `p`.
+The operation returns the handler instead of just `()` because the handler is shallow and serves as a parameter of the model intended to carry state information accessible to the inference algorithm.
+Consequently, the handler must be threaded through the model, and in particular through the continuation.
+This leads to types for `Model` and `Continuation` analogous to a state monad parameterized over the outcome, with the continuation stored in a `Box` to allow it to be part of the state.\
+Also note that the name `Particle` for the result type of `Model` is common in statistical modeling.
+It appears to originate from physics, representing a classical particle.
+Interestingly, it represents the outcome in the context of the handler state, making it a “statistical” particle that slightly resembles a quantum particle.\
+Now, handlers must record the likelihood according to the needs of the inference algorithm.
+For importance sampling - a method that approximates the posterior distribution from Bayesian inference using Bayes’ theorem - it is sufficient to accumulate the likelihood contributions.
+One way to achieve this is to wrap the weight accumulator for the likelihood inside the handler that carries its state:
 
 ```rust
 struct WeighWeight {
@@ -471,10 +472,10 @@ fn print_bool_distribution(posterior: Posterior<bool>) {
 }
 ```
 
-Now, the perk of probabilistic programming is that the implementation of the above doesn't matter to most probabilistic programmers.
-Usually, they only have to implement their model and choose an inference algorithm and visualization algorithm from a library.\
-A typical toy model to illustrate probabilistic programming is the so-called sprinkler model.
-It describes the influence of rain and a sprinkler as random events on wet lawn statistically, outputting if it is raining.
+One of the benefits of probabilistic programming is that the implementation details above are usually irrelevant to most probabilistic programmers.
+Typically, they only need to implement their model and select an inference algorithm and visualization tool from a library.\
+A common toy model used to illustrate probabilistic programming is the so-called *sprinkler model*.
+It statistically describes how rain and a sprinkler, treated as random events, influence whether a lawn is wet, ultimately producing an output indicating if it is raining.
 
 ```rust
 use rand::distributions::{Bernoulli, Distribution};
@@ -516,14 +517,14 @@ print_bool_distribution(importance_sampling(sprinkler, 1000));
 ```
 
 The resulting posterior is something like `65% TRUE vs. 35% FALSE`.\
-This result could have been obtained by some other inference alogrithm like sequential Monte Carlo (SMC), too.
-Having the choice can be particularly important with respect to efficiency.
-For example, importance sampling may sometimes need significantly more particles than SMC for equally good approximations.\
-On the other hand, importance sampling could have been applied to some other model like linear regression.
+This outcome could also have been obtained using another inference algorithm, such as sequential Monte Carlo (SMC).
+Having the choice of algorithm can be particularly important for efficiency.
+For example, importance sampling may sometimes require significantly more particles than SMC to achieve equally accurate approximations.\
+On the other hand, importance sampling could be applied to a different model, such as linear regression.
 An implementation of that (and of SMC) can be found [here](https://gist.github.com/shtsoft/ba971c25e5bd559cc19cd07dff9dc761).\
-So, it is possible to do some non-trivial probabilistic programming with the pattern.
-And, importantly, the [code](https://gist.github.com/shtsoft/ba971c25e5bd559cc19cd07dff9dc761) does not look too bad and performs decently.
-Finally, we think the applicability in this more complex situation gives some confidence in the usefulness of the pattern.
+This demonstrates that non-trivial probabilistic programming is possible with this pattern.
+Importantly, the [code](https://gist.github.com/shtsoft/ba971c25e5bd559cc19cd07dff9dc761) remains reasonably readable and performs well.
+Finally, the applicability of the pattern in this more complex scenario provides confidence in its usefulness.
 
-[^1]: Actually, it is rather control/prompt due the shallowness of the handlers here. But we shall ignore that.
-[^2]: The [Effekt language](https://effekt-lang.org) generally thinks of handlers as capabilities. In fact, its semantics is determined by an interpretation in a language enforcing explicit capability-passing style.
+[^1]: Actually, it is more a matter of control/prompt due to the shallowness of the handlers here, but we will ignore that.
+[^2]: The [Effekt language](https://effekt-lang.org) generally treats handlers as capabilities. In fact, its semantics is defined via an interpretation in a language enforcing explicit capability-passing style.
