@@ -2,7 +2,7 @@
 
 Algebraic effects and handlers have become a hot topic in programming language research over the last two decades.
 In the early days of handlers, people were curious but often found it difficult to get started with the topic.
-As a result, one of the pioneers of handlers eventually felt compelled to write the tutorial [An Introduction to Algebraic Effects and Handlers](http://www.sciencedirect.com/science/article/pii/S1571066115000705) to make the subject more accessible.\
+Consequently, one of the pioneers of handlers eventually felt compelled to write the tutorial [An Introduction to Algebraic Effects and Handlers](http://www.sciencedirect.com/science/article/pii/S1571066115000705) to make the subject more accessible.\
 The tutorial begins with: "*Algebraic effects* are an approach to computational effects based on the premise that impure behavior arises from a set of *operations*."
 Rust provides a way to work with "sets of operations": traits.
 But does that mean we can actually implement algebraic effects and handlers in vanilla Rust?
@@ -13,7 +13,7 @@ This post explores that idea.
 More precisely, after a brief discussion of effect handlers and a Rust encoding of them ([The Try](#the-try)), we examine the shortcomings of this encoding using a canonical effect handler example ([The Trickery](#the-trickery)).
 In the subsequent discussion, however, more sophisticated examples involving async/await and probabilistic programming suggest that the encoding may still be useful ([The Usefulness](#the-usefulness)).\
 That said, you should not expect a revolution.
-The pattern is very much down to earth and is probably already in use somewhere.
+The pattern is grounded and likely already in use somewhere.
 
 ## The Try
 
@@ -119,7 +119,7 @@ div(5, 2, ExceptionDiv {}); // prints `2`
 div(5, 0, ExceptionDiv {}); // prints the error message defined above by `ExceptionDiv`
 ```
 
-What is interesting here is how this pattern compares to ordinary exception/effect handler semantics.
+Interestingly, this pattern compares to ordinary exception/effect handler semantics.
 In a language with exception handlers, one would write the above function body more like this:
 
 ```python
